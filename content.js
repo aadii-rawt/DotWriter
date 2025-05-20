@@ -2,14 +2,34 @@ let activeElement = null;
 let controller = null;
 
 // -- Shortcut Listener for "--"
-document.addEventListener('input', (e) => {
+document.addEventListener('keyup', (e) => {
   const target = e.target;
-  if (!target || !['TEXTAREA', 'INPUT'].includes(target.tagName.toUpperCase())) return;
 
-  const value = target.value;
-  const cursorPos = target.selectionStart;
+  // ✅ Ignore inside popup
+  if (target?.dataset?.ignoreAi) return;
 
+  const isInput = target instanceof HTMLInputElement;
+  const isTextarea = target instanceof HTMLTextAreaElement;
+  const isContentEditable = target.isContentEditable;
+
+  if (!(isInput || isTextarea || isContentEditable)) return;
+
+  let value = '';
+  let cursorPos = 0;
+
+  if (isInput || isTextarea) {
+    value = target.value;
+    cursorPos = target.selectionStart;
+  } else if (isContentEditable) {
+    const selection = window.getSelection();
+    if (!selection || !selection.focusNode) return;
+    value = selection.focusNode.textContent || '';
+    cursorPos = selection.focusOffset;
+  }
+
+  // ✅ Trigger only if last 2 characters are `--`
   if (value.substring(cursorPos - 2, cursorPos) === '--') {
+    if (document.querySelector('#compose-prompt-box')) return;
     activeElement = target;
     showFloatingPrompt(target);
   }
@@ -80,7 +100,8 @@ function showFloatingPrompt(target) {
       </div>
       <div class="popup-content popup-container">
         <img src="${logo}" style="height: 20px;" />
-        <textarea id="compose-prompt-input" placeholder="Type your request and press Enter..."></textarea>
+      <textarea id="compose-prompt-input" data-ignore-ai="true" placeholder="Type your request and press Enter..."></textarea>
+
       </div>
     </div>`;
 
@@ -127,7 +148,7 @@ function cleanupPopup() {
 }
 
 async function getResponse(prompt, controller) {
-  const apiKey = "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";
+  const apiKey = "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";
 
   try {
     const fetchOptions = {
@@ -175,11 +196,42 @@ function insertResponse(response) {
 // 👇 Show "Write with AI" button on textarea focus
 document.addEventListener('focusin', (e) => {
   const target = e.target;
-  if (target.tagName === 'TEXTAREA' && !target.dataset.hasAiButton) {
-    showAiButton(target);
-    target.dataset.hasAiButton = "true";
-  }
+
+  const isValid =
+    (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement ||
+     target.isContentEditable);
+
+  if (!isValid || target.dataset.hasAiButton || target.dataset.ignoreAi) return;
+
+  showAiButton(target);
+  target.dataset.hasAiButton = "true";
 });
+
+
+function getCleanPageContext() {
+  const EXCLUDE_SELECTORS = [
+    'header', 'nav', 'footer',
+    '[class*="header"]', '[class*="footer"]',
+    '[class*="nav"]', '[class*="banner"]',
+    '[class*="sidebar"]', '[class*="alert"]',
+    '[role="banner"]', '[role="navigation"]', '[role="alert"]'
+  ];
+
+  const elements = Array.from(document.querySelectorAll('body *'));
+
+  const cleanTextBlocks = elements
+    .filter(el => {
+      return !EXCLUDE_SELECTORS.some(sel => el.closest(sel)) &&
+             el.offsetParent !== null &&
+             el.innerText?.trim().length > 30;
+    })
+    .map(el => el.innerText.trim())
+    .slice(0, 10); // limit to top 10 meaningful blocks
+
+  return cleanTextBlocks.join('\n\n');
+}
+
+
 
 // Inject required loader styles
 const styleTag = document.createElement('style');
@@ -252,18 +304,15 @@ ${maxLength ? 'MaxLength: ' + maxLength : ''}
 ${required ? 'This field is required.' : ''}
 `;
 
-  const contextText = `
-Headings:
-${headings.join('\n')}
+const cleanedPageText = getCleanPageContext();
 
-Paragraphs:
-${paragraphs.slice(0, 5).join('\n\n')}
-
-Preformatted:
-${preformatted.join('\n\n')}
+const contextText = `
+Page Context:
+${cleanedPageText}
 
 ${validationRules}
 `;
+
 
   return {
     type: "smart content",

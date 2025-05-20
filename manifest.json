@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Compose Helper",
-  "description": "AI-based text composer triggered by --",
+  "name": "DotWriter",
+  "description": "AI-based text writer triggered by --",
   "version": "1.0",
   "permissions": [
     "activeTab",
