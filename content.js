@@ -316,7 +316,6 @@ ${cleanedPageText}
 ${validationRules}
 `;
 
-
     return {
       type: "smart content",
       details: contextText
@@ -324,75 +323,39 @@ ${validationRules}
   }
 
 
-  function showAiButton(textarea) {
-    const logo = chrome.runtime.getURL('logo.png');
+ function showAiButton(textarea) {
+  const logo = chrome.runtime.getURL('logo.png');
 
-    const button = document.createElement('button');
-    button.textContent = "✍️ Write with AI";
-    button.style.position = "absolute";
-    button.style.top = `${textarea.offsetTop + textarea.offsetHeight - 30}px`;
-    button.style.left = `${textarea.offsetLeft + textarea.offsetWidth - 120}px`;
-    button.style.zIndex = 9999;
-    button.style.padding = "6px 10px";
-    button.style.fontSize = "12px";
-    button.style.border = "1px solid #888";
-    button.style.background = "#f0f0f0";
-    button.style.borderRadius = "4px";
-    button.style.cursor = "pointer";
+  const container = document.createElement('div');
+  container.style.position = 'relative';
+  container.style.display = 'inline-block';
+  container.style.width = textarea.offsetWidth + 'px';
 
-    const loader = document.createElement('div');
-    loader.className = 'ai-loader';
-    loader.style.display = 'none';
-    loader.innerHTML = `
-    <img src="${logo}" style="height: 20px;" />
-    <span>Writing with AI... <kbd>Esc</kbd> to cancel</span>
-    <div class="spinner"></div>
-  `;
-    loader.style.position = "absolute";
-    loader.style.top = `${textarea.offsetTop + textarea.offsetHeight - 30}px`;
-    loader.style.left = `${textarea.offsetLeft + textarea.offsetWidth - 200}px`;
-    loader.style.zIndex = 9999;
+  textarea.parentNode.insertBefore(container, textarea);
+  container.appendChild(textarea);
 
-    button.addEventListener('click', async () => {
-      const context = extractContext(textarea);
+  const button = document.createElement('button');
+  button.style.position = 'absolute';
+  button.style.top = '6px';
+  button.style.right = '6px';
+  button.style.padding = '4px';
+  button.style.border = '1px solid #ccc';
+  button.style.borderRadius = '4px';
+  button.style.background = 'white';
+  button.style.cursor = 'pointer';
+  button.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+  button.style.zIndex = '10000';
 
-      const prompt = `
-You are a professional AI writing assistant.
+  const icon = document.createElement('img');
+  icon.src = logo;
+  icon.style.height = '16px';
+  icon.style.width = '16px';
+  button.appendChild(icon);
 
-Below is the context from the webpage, including project requirements and form validation rules.
-Use it to generate a response that:
+  button.addEventListener('click', () => {
+    activeElement = textarea;
+    showFloatingPrompt(textarea);
+  });
 
-- Matches the intent (e.g., proposal, review, comment)
-- Covers all important points from the description
-- Fulfills input requirements (e.g., minimum 100 characters)
-- Sounds natural and helpful
-
-Context:
-${context.details}
-
-Only return the final response. Do not include explanation.
-`;
-
-
-      controller = new AbortController();
-      button.style.display = "none";
-      loader.style.display = "flex";
-      document.body.appendChild(loader);
-
-      const result = await getResponse(prompt, controller);
-      if (result !== '__ABORTED__') {
-        textarea.value = result;
-      }
-
-      loader.remove();
-      button.remove();
-    });
-
-    document.body.appendChild(button);
-
-    textarea.addEventListener('blur', () => {
-      setTimeout(() => {
-        if (document.body.contains(button)) button.remove();
-      }, 300);
-    });
-  }
+  container.appendChild(button);
+}
